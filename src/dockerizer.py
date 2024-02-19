@@ -31,4 +31,31 @@ class Dockerizer:
         self.token = token
 
 
-    
+    def create_docker_compose(self) -> None:
+        """
+        This method creates the docker-compose.yml file.
+        But first it creates the services.
+
+        ---
+        """
+
+        services = []
+
+        for key, data in self.norm_data.items():
+            if "poof" in key:
+                services.append(PortSpoofService(name=key, port=data["port"], banner=data["banner"], mode=data["mode"], log_api_url="http://log_api:50005", token=self.token, log_container_name="log_api"))
+            elif "api" in key:
+                #services.append()
+                pass
+        
+        dc = DockerCompose(services=services)
+
+        list_of_dc_lines = dc.dump()
+
+        with open(f"{self.output_path}/docker-compose.yml", "w") as f:
+            for line in list_of_dc_lines:
+                f.write(line + "\n")
+        
+        for service in services:
+            service.create_config_files(self.output_path)
+
