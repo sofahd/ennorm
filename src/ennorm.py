@@ -231,7 +231,7 @@ class EnNorm:
         nginx_config.append(f"        proxy_pass http://{api_name}:50005{endpoint};")
         
         for header, value in endpoint_data["headers"].items():
-            nginx_config.append(f"        proxy_set_header {header} {value};")
+            nginx_config.append(f"        more_set_headers '{header}: {value}';")
 
         nginx_config.append(f"    }}")
 
