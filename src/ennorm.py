@@ -1,7 +1,7 @@
 from sofahutils import SofahLogger
 import os, json
 from typing import Optional
-from dockerizer import Dockerizer
+from .dockerizer import Dockerizer
 
 
 class EnNorm:
@@ -87,7 +87,9 @@ class EnNorm:
 
         self.logger.info(message="Enriching data from recon module finished", method="EnNorm._enrich_recon_data")
         
-        dockerizer = Dockerizer(norm_data=self.container_structure, output_path=self.output_path, token=self.token)
+        dockerizer = Dockerizer(norm_data=self.container_structure, output_path=self.output_path, token=self.token, logger=self.logger)
+
+        dockerizer.create_docker_compose()
 
                     
     def _load_recon_data(self) -> dict:
@@ -174,6 +176,7 @@ class EnNorm:
         
         self.container_structure[api_name]["nginx"] = nginx_config
         self.container_structure[api_name]["endpoints"] = ret_dict
+        self.container_structure[api_name]["port"] = port
 
 
     
@@ -228,14 +231,16 @@ class EnNorm:
         nginx_config = []
 
         nginx_config.append(f"    location {endpoint} {{")
-        nginx_config.append(f"        proxy_pass http://{api_name}:50005{endpoint};")
+        nginx_config.append(f"        proxy_pass http://{api_name}_api:50005{endpoint};")
         
-        for header, value in endpoint_data["headers"].items():
+        for header, value in self._clean_headers(endpoint_data["headers"]).items():
+            self.logger.info(message=f"Adding header {header} with value {value} to nginx config", method="EnNorm._create_nginx_config")
             nginx_config.append(f"        more_set_headers '{header}: {value}';")
 
         nginx_config.append(f"    }}")
-
+        
         return nginx_config
+    
 
     def _replace_values_with_placeholder(self, response_file_path:str):
         """
@@ -277,7 +282,7 @@ class EnNorm:
         cleaned_headers = {}
 
         for key, value in headers.items():
-            if key.lower() not in ["date", "etag"]:
+            if key.lower() not in ["date", "etag", "connection", "transfer_encoding", "content_encoding"]:
                 cleaned_headers[key] = value
 
         return cleaned_headers

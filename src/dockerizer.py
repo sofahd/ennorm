@@ -1,5 +1,5 @@
-from sofahutils import SofahLogger, DockerCompose
-from services import PortSpoofService, LogApiService
+from sofahutils import SofahLogger, DockerCompose, DockerComposeService
+from services import PortSpoofService, LogApiService, ApiHoneypot, NginxHoneypot
 
 
 
@@ -29,6 +29,7 @@ class Dockerizer:
         self.output_path = output_path
         self.logger = logger
         self.token = token
+        self.regex_placeholders = self.norm_data.get("regex_and_placeholder")
 
 
     def create_docker_compose(self) -> None:
@@ -45,8 +46,9 @@ class Dockerizer:
             if "poof" in key:
                 services.append(PortSpoofService(name=key, port=data["port"], banner=data["banner"], mode=data["mode"], log_api_url="http://log_api:50005", token=self.token, log_container_name="log_api"))
             elif "api" in key:
-                #services.append()
-                pass
+                services.extend(self._create_api_services(data=data, name=key))
+            
+            
         
         dc = DockerCompose(services=services)
 
@@ -57,5 +59,35 @@ class Dockerizer:
                 f.write(line + "\n")
         
         for service in services:
-            service.create_config_files(self.output_path)
+            service.download_repo()
 
+
+
+    def _create_api_services(self, data:dict, name:str) -> list[DockerComposeService]:
+        """
+        This method creates the services for the api honeypot service.
+        It is excluded from the create_docker_compose method, because it is a bit more complex.
+    
+        ---
+        :param data: The data for the api honeypot service.
+        :type data: dict
+        :param name: The name of the service.
+        :type name: str
+        """
+
+        services = []
+
+        nginx_conf = data.get("nginx")
+        port = data.get("port")
+        endpoints = data.get("endpoints")
+        network_name = f"{name}_net"
+        data["placeholders"] = self.regex_placeholders
+
+        if not nginx_conf or not port or not endpoints:
+            raise ValueError("The data for the api honeypot service is not complete.")
+        
+
+        services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api"))
+        services.append(ApiHoneypot(name=f"{name}_api", ext_port=port, answerset=data, token=self.token, nginx_api_net_name=network_name, log_api_url="http://log_api:50005", log_container_name="log_api"))
+
+        return services
