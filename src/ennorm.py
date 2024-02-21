@@ -282,7 +282,7 @@ class EnNorm:
         cleaned_headers = {}
 
         for key, value in headers.items():
-            if key.lower() not in ["date", "etag", "connection", "transfer_encoding", "content_encoding"]:
+            if key.lower() not in ["date", "etag", "connection", "transfer-encoding", "content-encoding"]:
                 cleaned_headers[key] = value
 
         return cleaned_headers
