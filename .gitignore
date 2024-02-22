@@ -160,6 +160,8 @@ cython_debug/
 #.idea/
 
 docker-compose.yml
-/data
+
+/data/*
+!/data/out
 test.py
 /out
