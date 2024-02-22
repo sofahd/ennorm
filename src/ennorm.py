@@ -2,7 +2,7 @@ from sofahutils import SofahLogger
 import os, json
 from urllib.parse import urlparse, parse_qs
 from typing import Optional
-from .dockerizer import Dockerizer
+from dockerizer import Dockerizer
 
 
 class EnNorm:
@@ -11,7 +11,7 @@ class EnNorm:
     Here especially the data from the recon module is enriched and normalized. 
     """
 
-    def __init__(self, logger:SofahLogger, token:str, ip:str, input_path:Optional[str] = "/home/ennorm/input", output_path:Optional[str] = "/home/ennorm/output", placeholder_vars:Optional[dict] = {}):
+    def __init__(self, logger:SofahLogger, token:str, ip:str, input_path:Optional[str] = "/home/pro/data", output_path:Optional[str] = "/home/pro/data/out", placeholder_vars:Optional[dict] = {}):
         """
         Constructor for the EnNorm class.
 
