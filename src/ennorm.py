@@ -1,5 +1,6 @@
 from sofahutils import SofahLogger
 import os, json
+from urllib.parse import urlparse, parse_qs
 from typing import Optional
 from .dockerizer import Dockerizer
 
@@ -163,12 +164,22 @@ class EnNorm:
         self.container_structure[api_name] = {}
         
         for endpoint, data in endpoints.items():
-            ret_dict[endpoint] = self._process_endpoint(endpoint_data=data, endpoint=endpoint, api_name=api_name)
-
+            query_params = {}
+            cleaned_endpoint = endpoint
+            if "?" in endpoint:
+                parsed_url = urlparse(endpoint)
+                cleaned_endpoint = parsed_url.path
+                query_params = parse_qs(parsed_url.query)
+                
+            ret_dict[cleaned_endpoint] = self._process_endpoint(endpoint_data=data, endpoint=cleaned_endpoint, api_name=api_name)
+            ret_dict[cleaned_endpoint]["params"] = query_params
+            
         # Here the Nginx config gets concatenated.
         nginx_config = []
         nginx_config.append(f"server {{")
         nginx_config.append(f"    listen {port};")
+        nginx_config.append(f"    more_clear_headers 'Content-Disposition';")
+        nginx_config.append(f"    more_clear_headers 'E-Tag';")
         for endpoint, data in ret_dict.items():
             nginx_config += data["nginx"]
             ret_dict[endpoint].pop("nginx") 
@@ -229,8 +240,12 @@ class EnNorm:
         self.logger.info(message=f"Creating nginx config for {endpoint}", method="EnNorm._create_nginx_config")
 
         nginx_config = []
+        
 
-        nginx_config.append(f"    location {endpoint} {{")
+        if endpoint.endswith("/"):
+            nginx_config.append(f"    location = \"{endpoint.replace('%20', ' ')}\" {{")
+        else:
+            nginx_config.append(f"    location \"{endpoint.replace('%20', ' ')}\" {{")
         nginx_config.append(f"        proxy_pass http://{api_name}_api:50005{endpoint};")
         
         for header, value in self._clean_headers(endpoint_data["headers"]).items():
@@ -252,19 +267,21 @@ class EnNorm:
         """
 
         self.logger.info(message=f"Replacing values with placeholder in {response_file_path}", method="EnNorm._replace_values_with_placeholder")
+        try:
+            with open(response_file_path, "r") as f:
+                lines = f.readlines()
+            
+            cleaned_lines = []
 
-        with open(response_file_path, "r") as f:
-            lines = f.readlines()
+            for line in lines:
+                for value, placeholder in self.placeholder_vars.items():
+                    line = line.replace(value, placeholder)
+                cleaned_lines.append(line)
         
-        cleaned_lines = []
-
-        for line in lines:
-            for value, placeholder in self.placeholder_vars.items():
-                line = line.replace(value, placeholder)
-            cleaned_lines.append(line)
-     
-        with open(response_file_path, "w") as f:
-            f.writelines(cleaned_lines)
+            with open(response_file_path, "w") as f:
+                f.writelines(cleaned_lines)
+        except Exception as e:
+            self.logger.error(message=f"Error replacing values with placeholder in {response_file_path}, {str(e)}", method="EnNorm._replace_values_with_placeholder")
 
     def _clean_headers(self, headers:dict) -> dict:
         """
