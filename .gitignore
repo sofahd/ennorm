@@ -163,5 +163,6 @@ docker-compose.yml
 
 /data/*
 !/data/out
+!/data/conf
 test.py
 /out
