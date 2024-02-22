@@ -59,7 +59,7 @@ class Dockerizer:
                 f.write(line + "\n")
         
         for service in services:
-            service.download_repo()
+            service.download_repo(f"{self.output_path}/{service.name}")
 
 
 
