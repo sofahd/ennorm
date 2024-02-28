@@ -43,7 +43,7 @@ class Dockerizer:
         services = []
         services.append(LogApiService(name="log_api", port=50005, token=self.token, log_folder_path="./log_folder"))
         for key, data in self.norm_data.items():
-            if "poof" in key:
+            if "poof" in key and data.get("mode") != None:
                 services.append(PortSpoofService(name=key, port=data["port"], banner=data["banner"], mode=data["mode"], log_api_url="http://log_api:50005", token=self.token, log_container_name="log_api"))
             elif "api" in key:
                 services.extend(self._create_api_services(data=data, name=key))
