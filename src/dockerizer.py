@@ -47,19 +47,10 @@ class Dockerizer:
                 services.append(PortSpoofService(name=key, port=data["port"], banner=data["banner"], mode=data["mode"], log_api_url="http://log_api:50005", token=self.token, log_container_name="log_api"))
             elif "api" in key:
                 services.extend(self._create_api_services(data=data, name=key))
-            
-            
         
         dc = DockerCompose(services=services)
-
-        list_of_dc_lines = dc.dump()
-
-        with open(f"{self.output_path}/docker-compose.yml", "w") as f:
-            for line in list_of_dc_lines:
-                f.write(line + "\n")
-        
-        for service in services:
-            service.download_repo(f"{self.output_path}/{service.name}")
+        dc.write_to_file(f"{self.output_path}/docker-compose.yml")
+        dc.download_all_repos(self.output_path)
 
 
 
