@@ -69,7 +69,7 @@ class EnNorm:
                 
                 if port_dict[port]["endpoints"] != {}: # if there are endpoints, therefor this is an API!
                     self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._enrich_recon_data")
-                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", ""))
+                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", "http"))
 
                 else:
                     self.logger.info(message=f"Creating Port_spoof for {ip}:{port}", method="EnNorm._enrich_recon_data")
