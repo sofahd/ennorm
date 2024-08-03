@@ -69,7 +69,7 @@ class EnNorm:
                 
                 if port_dict[port]["endpoints"] != {}: # if there are endpoints, therefor this is an API!
                     self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._enrich_recon_data")
-                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port)
+                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", ""))
 
                 else:
                     self.logger.info(message=f"Creating Port_spoof for {ip}:{port}", method="EnNorm._enrich_recon_data")
@@ -137,7 +137,7 @@ class EnNorm:
 
         return files_list
     
-    def _create_api(self, endpoints:dict, ip:str, port:str):
+    def _create_api(self, endpoints:dict, ip:str, port:str, service_version:str):
         """
         Create an API from the data of the recon module.
 
@@ -148,6 +148,8 @@ class EnNorm:
         :type ip: str
         :param port: Port of the API.
         :type port: str
+        :param service_version: Version of the service.
+        :type service_version: str
         """
 
         self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._create_api")
@@ -173,13 +175,18 @@ class EnNorm:
                 
             ret_dict[cleaned_endpoint] = self._process_endpoint(endpoint_data=data, endpoint=cleaned_endpoint, api_name=api_name)
             ret_dict[cleaned_endpoint]["params"] = query_params
-            
+        
         # Here the Nginx config gets concatenated.
         nginx_config = []
         nginx_config.append(f"server {{")
-        nginx_config.append(f"    listen {port};")
+        nginx_config.append(f"    listen {port} ssl;" if "ssl" in service_version else f"    listen {port};")
+        if "ssl" in service_version:
+            nginx_config.append(f"    ssl_certificate /etc/nginx/ssl/cert.pem;")
+            nginx_config.append(f"    ssl_certificate_key /etc/nginx/ssl/key.pem;")
         nginx_config.append(f"    more_clear_headers 'Content-Disposition';")
         nginx_config.append(f"    more_clear_headers 'E-Tag';")
+        nginx_config.append(f"    set_real_ip_from 0.0.0.0/0;")
+        nginx_config.append(f"    real_ip_header X-Real-IP;")
         for endpoint, data in ret_dict.items():
             nginx_config += data["nginx"]
             ret_dict[endpoint].pop("nginx") 
@@ -251,6 +258,10 @@ class EnNorm:
         for header, value in self._clean_headers(endpoint_data["headers"]).items():
             self.logger.info(message=f"Adding header {header} with value {value} to nginx config", method="EnNorm._create_nginx_config")
             nginx_config.append(f"        more_set_headers '{header}: {value}';")
+
+        # Here we will add the nginx headers to ensure the true IP is passed to the backend.
+        nginx_config.append("        proxy_set_header X-Real-IP $remote_addr;")
+        nginx_config.append("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;")
 
         nginx_config.append(f"    }}")
         
