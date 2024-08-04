@@ -151,6 +151,8 @@ class EnNorm:
         :param service_version: Version of the service.
         :type service_version: str
         """
+        if not service_version or service_version == "":
+            service_version = "http"
 
         self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._create_api")
 
