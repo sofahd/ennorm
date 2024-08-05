@@ -93,6 +93,6 @@ class Dockerizer:
         if "ssl" in service_version:
             services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api", create_cert="True", cn=cn, c=c, st=st, l=l, o=o, ou=ou))
         else:
-            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api"), create_cert="False")
+            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api", create_cert="False"))
 
         return services
