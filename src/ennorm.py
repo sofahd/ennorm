@@ -69,7 +69,7 @@ class EnNorm:
                 
                 if port_dict[port]["endpoints"] != {}: # if there are endpoints, therefor this is an API!
                     self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._enrich_recon_data")
-                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", "http"))
+                    self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", "http"), ssl_info=port_dict[port].get("ssl"))
 
                 else:
                     self.logger.info(message=f"Creating Port_spoof for {ip}:{port}", method="EnNorm._enrich_recon_data")
@@ -137,7 +137,7 @@ class EnNorm:
 
         return files_list
     
-    def _create_api(self, endpoints:dict, ip:str, port:str, service_version:str):
+    def _create_api(self, endpoints:dict, ip:str, port:str, service_version:str, ssl_info:Optional[dict] = None):
         """
         Create an API from the data of the recon module.
 
@@ -197,6 +197,9 @@ class EnNorm:
         self.container_structure[api_name]["nginx"] = nginx_config
         self.container_structure[api_name]["endpoints"] = ret_dict
         self.container_structure[api_name]["port"] = port
+        self.container_structure[api_name]["service_version"] = service_version
+        if "ssl" in service_version and ssl_info:
+            self.container_structure[api_name]["ssl"] = ssl_info
 
 
     
