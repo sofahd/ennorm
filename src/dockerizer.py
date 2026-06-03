@@ -1,5 +1,6 @@
 from sofahutils import SofahLogger, DockerCompose, DockerComposeService
 from services import PortSpoofService, LogApiService, ApiHoneypot, NginxHoneypot
+from cert_forge import forge_cert
 
 
 
@@ -74,25 +75,20 @@ class Dockerizer:
         network_name = f"{name}_net"
         service_version = data.get("service_version", "none")
         ssl_info = data.get("ssl", None)
-        subject_info = ssl_info.get("subject", None) if ssl_info else None
-        cn = subject_info.get("CN", None) if subject_info else None
-        c = subject_info.get("C", None) if subject_info else None
-        st = subject_info.get("ST", None) if subject_info else None
-        l = subject_info.get("L", None) if subject_info else None
-        o = subject_info.get("O", None) if subject_info else None
-        ou = subject_info.get("OU", None) if subject_info else None
-
 
         data["placeholders"] = self.regex_placeholders
 
         if not nginx_conf or not port or not endpoints:
             raise ValueError("The data for the api honeypot service is not complete.")
-        
+
         services.append(ApiHoneypot(name=f"{name}_api", ext_port=port, answerset=data, token=self.token, nginx_api_net_name=network_name, log_api_url="http://log_api:50005", log_container_name="log_api"))
-        
+
         if "ssl" in service_version:
-            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api", create_cert="True", cn=cn, c=c, st=st, l=l, o=o, ou=ou))
+            # Forge a look-alike cert from the captured metadata and hand the PEMs to nginx; it
+            # serves them on the cloned TLS port (nginx.conf already lists `listen <port> ssl;`).
+            cert_pem, key_pem = forge_cert(ssl_info)
+            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api", cert_pem=cert_pem.decode(), key_pem=key_pem.decode()))
         else:
-            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api", create_cert="False"))
+            services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api"))
 
         return services

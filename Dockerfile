@@ -17,6 +17,7 @@ RUN apk --no-cache -U add \
     git \
     python3-dev && \
     pip3 install setuptools && \
+    pip3 install cryptography==41.0.7 && \
     pip3 install git+https://github.com/sofahd/sofahutils.git  && \
     pip3 install git+https://github.com/sofahd/services.git
 
