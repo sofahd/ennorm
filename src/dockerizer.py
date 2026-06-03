@@ -1,5 +1,5 @@
 from sofahutils import SofahLogger, DockerCompose, DockerComposeService
-from services import PortSpoofService, LogApiService, ApiHoneypot, NginxHoneypot
+from services import PortSpoofService, LogApiService, ApiHoneypot, NginxHoneypot, SshHoneypotService
 from cert_forge import forge_cert
 
 
@@ -46,6 +46,8 @@ class Dockerizer:
         for key, data in self.norm_data.items():
             if "poof" in key and data.get("mode") != None:
                 services.append(PortSpoofService(name=key, port=data["port"], banner=data["banner"], mode=data["mode"], log_api_url="http://log_api:50005", token=self.token, log_container_name="log_api"))
+            elif "ssh" in key:
+                services.append(self._create_ssh_service(data=data, name=key))
             elif "api" in key:
                 services.extend(self._create_api_services(data=data, name=key))
         
@@ -92,3 +94,27 @@ class Dockerizer:
             services.append(NginxHoneypot(name=f"{name}_nginx", port=port, nginx_config=nginx_conf, token=self.token, nginx_api_net_name=network_name, api_container_name=f"{name}_api"))
 
         return services
+
+    def _create_ssh_service(self, data:dict, name:str) -> DockerComposeService:
+        """
+        This method creates the SSH honeypot service. The persona (banner, hostname, uname,
+        weak credentials) comes from the normalized recon data; recon's captured SSH banner is
+        folded in as the persona banner when the persona doesn't already set one, so the pot's
+        `nmap -sV` fingerprint matches the cloned device.
+
+        ---
+        :param data: The data for the ssh honeypot service (must carry `port`).
+        :type data: dict
+        :param name: The name of the service.
+        :type name: str
+        """
+
+        port = data.get("port")
+        if not port:
+            raise ValueError("The data for the ssh honeypot service requires a port.")
+
+        persona = dict(data.get("persona", {}))
+        if not persona.get("banner") and data.get("banner"):
+            persona["banner"] = data["banner"]
+
+        return SshHoneypotService(name=name, port=port, persona=persona, token=self.token, log_api_url="http://log_api:50005", log_container_name="log_api")
