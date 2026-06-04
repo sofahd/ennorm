@@ -71,6 +71,10 @@ class EnNorm:
                     self.logger.info(message=f"Creating API for {ip}:{port}", method="EnNorm._enrich_recon_data")
                     self._create_api(endpoints=port_dict[port]["endpoints"], ip=ip, port=port, service_version=port_dict[port].get("service_version", "http"), ssl_info=port_dict[port].get("ssl"))
 
+                elif self._is_ssh(port_dict[port]):
+                    self.logger.info(message=f"Creating SSH honeypot for {ip}:{port}", method="EnNorm._enrich_recon_data")
+                    self._create_ssh(port_data=port_dict[port], port=port)
+
                 else:
                     self.logger.info(message=f"Creating Port_spoof for {ip}:{port}", method="EnNorm._enrich_recon_data")
                     counter = 0
@@ -136,7 +140,54 @@ class EnNorm:
                 files_list.append(filename)
 
         return files_list
-    
+
+    def _is_ssh(self, port_data:dict) -> bool:
+        """
+        Decide whether a recon-scanned port is an SSH service.
+
+        recon never crawls SSH (it serves no HTTP endpoints), so an SSH port reaches the
+        normalizer with empty ``endpoints`` and would otherwise be misfiled as a generic
+        port_spoof. nmap (`-sV`) names the service ``ssh``, and ``--script=banner`` captures
+        the RFC 4253 identification string (always ``SSH-<proto>-<software>``); either signal
+        on its own is enough to recognise SSH.
+
+        ---
+        :param port_data: One port's recon result (``service_version``, ``banner``, ...).
+        :type port_data: dict
+        :return: True if the port speaks SSH.
+        :rtype: bool
+        """
+
+        service_version = (port_data.get("service_version") or "").lower()
+        banner = port_data.get("banner") or ""
+        return "ssh" in service_version or banner.startswith("SSH-")
+
+    def _create_ssh(self, port_data:dict, port:str):
+        """
+        Emit an ``ssh_<port>`` normalized entry for an SSH service recon found on ``port``.
+
+        The dockerizer routes any key containing ``ssh`` to a SshHoneypotService (see
+        Dockerizer._create_ssh_service). recon's real captured banner becomes the persona's
+        ``banner`` so the spawned pot's ``nmap -sV`` fingerprint matches the cloned device; if
+        recon grabbed no banner the persona is left empty and the pot falls back to its
+        defaults.
+
+        ---
+        :param port_data: One port's recon result; its ``banner`` is the SSH identification string.
+        :type port_data: dict
+        :param port: The port the SSH service was found on.
+        :type port: str
+        """
+
+        self.logger.info(message=f"Creating SSH honeypot for port {port}", method="EnNorm._create_ssh")
+
+        persona = {}
+        banner = port_data.get("banner")
+        if banner:
+            persona["banner"] = banner
+
+        self.container_structure[f"ssh_{port}"] = {"port": port, "persona": persona}
+
     def _create_api(self, endpoints:dict, ip:str, port:str, service_version:str, ssl_info:Optional[dict] = None):
         """
         Create an API from the data of the recon module.
