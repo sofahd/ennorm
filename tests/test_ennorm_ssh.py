@@ -76,6 +76,42 @@ def test_create_ssh_without_banner_still_emits_entry(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# deep harvest passthrough (recon had credentials)
+# --------------------------------------------------------------------------- #
+
+def test_create_ssh_passes_deep_harvest_through(tmp_path):
+    en = _ennorm(tmp_path)
+    en._create_ssh(port_data={
+        "banner": "SSH-2.0-dropbear_2019.78",
+        "ssh": {
+            "persona": {"uname": "Linux cam 3.10.0 armv7l", "hostname": "cam", "username": "root"},
+            "files": {"/etc/passwd": "root:x:0:0::/root:/bin/sh"},
+            "listings": {"/": {"raw": "drwxr-xr-x ...", "names": ["bin", "etc"]}},
+            "commands": {"ps": "    1 root /sbin/init"},
+            "banner": "SSH-2.0-should-be-ignored",
+        },
+    }, port="22")
+
+    entry = en.container_structure["ssh_22"]
+    assert entry["persona"]["uname"].startswith("Linux cam")
+    assert entry["persona"]["hostname"] == "cam"
+    # nmap's banner is canonical and wins over the harvested transport banner
+    assert entry["persona"]["banner"] == "SSH-2.0-dropbear_2019.78"
+    assert entry["files"]["/etc/passwd"].startswith("root:")
+    assert entry["listings"]["/"]["names"] == ["bin", "etc"]
+    assert entry["commands"]["ps"].endswith("/sbin/init")
+
+
+def test_create_ssh_without_harvest_has_no_deep_keys(tmp_path):
+    en = _ennorm(tmp_path)
+    en._create_ssh(port_data={"banner": "SSH-2.0-OpenSSH_7.4"}, port="22")
+
+    entry = en.container_structure["ssh_22"]
+    assert entry["persona"]["banner"] == "SSH-2.0-OpenSSH_7.4"
+    assert "files" not in entry and "listings" not in entry and "commands" not in entry
+
+
+# --------------------------------------------------------------------------- #
 # end-to-end routing: the actual gap being closed
 # --------------------------------------------------------------------------- #
 

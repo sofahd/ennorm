@@ -172,8 +172,15 @@ class EnNorm:
         recon grabbed no banner the persona is left empty and the pot falls back to its
         defaults.
 
+        When recon was given SSH credentials it also attaches a ``ssh`` block to the port
+        (``persona`` system identity + cloned ``files``/``listings``/``commands``); that deep
+        material is passed straight through so the pot can replay the real device. The nmap
+        banner still wins as the canonical ``persona.banner``. Without credentials the ``ssh``
+        block is absent and this degrades to the banner-only behaviour.
+
         ---
-        :param port_data: One port's recon result; its ``banner`` is the SSH identification string.
+        :param port_data: One port's recon result; ``banner`` is the SSH identification string
+            and an optional ``ssh`` key holds the deep harvest.
         :type port_data: dict
         :param port: The port the SSH service was found on.
         :type port: str
@@ -181,12 +188,22 @@ class EnNorm:
 
         self.logger.info(message=f"Creating SSH honeypot for port {port}", method="EnNorm._create_ssh")
 
-        persona = {}
-        banner = port_data.get("banner")
+        harvest = port_data.get("ssh") or {}
+
+        persona = dict(harvest.get("persona") or {})
+        banner = port_data.get("banner") or harvest.get("banner")
         if banner:
             persona["banner"] = banner
 
-        self.container_structure[f"ssh_{port}"] = {"port": port, "persona": persona}
+        entry = {"port": port, "persona": persona}
+
+        # Deep clone material -- only present when recon had credentials to log in.
+        for key in ("files", "listings", "commands"):
+            value = harvest.get(key)
+            if value:
+                entry[key] = value
+
+        self.container_structure[f"ssh_{port}"] = entry
 
     def _create_api(self, endpoints:dict, ip:str, port:str, service_version:str, ssl_info:Optional[dict] = None):
         """

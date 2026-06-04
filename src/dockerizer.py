@@ -117,4 +117,9 @@ class Dockerizer:
         if not persona.get("banner") and data.get("banner"):
             persona["banner"] = data["banner"]
 
-        return SshHoneypotService(name=name, port=port, persona=persona, token=self.token, log_api_url="http://log_api:50005", log_container_name="log_api")
+        # files/listings/commands are present only when recon had credentials for a deep
+        # harvest; passed through so the pot can clone the real device's FS + command output.
+        return SshHoneypotService(name=name, port=port, persona=persona,
+                                  files=data.get("files"), listings=data.get("listings"),
+                                  commands=data.get("commands"), token=self.token,
+                                  log_api_url="http://log_api:50005", log_container_name="log_api")
